@@ -166,8 +166,7 @@ def getCCodeLangAndOffset():
     nfo = ipapi.location()
     lang = nfo['languages'].split(',')[0]
     geo = nfo['country']
-    tz = str(round(int(nfo['utc_offset']) / 100 * 60))
-    return(lang, geo, tz)
+    return(lang, geo)
 
 def getGoogleTrends(numberOfwords: int) -> list:
     search_terms = []
@@ -727,7 +726,7 @@ prRed("""
 ╚═╝     ╚═╝╚══════╝    ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝""")
 prPurple("        by Charles Bel (@charlesbel)               version 1.1\n")
 
-LANG, GEO, TZ = getCCodeLangAndOffset()
+LANG, GEO = getCCodeLangAndOffset()
 
 for account in ACCOUNTS:
 
