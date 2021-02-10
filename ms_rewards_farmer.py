@@ -5,6 +5,7 @@ import requests
 import random
 import urllib.parse
 import ipapi
+import os
 
 from selenium import webdriver
 from selenium.webdriver.chrome.webdriver import WebDriver
@@ -15,8 +16,8 @@ from selenium.common.exceptions import NoSuchElementException, TimeoutException,
 
 ACCOUNTS = [
     {
-        "username": "Your Email",
-        "password": "Your Password"
+        "username": os.environ["EMAIL"],
+        "password": os.environ["PASSWORD"]
     }
 ]
 
