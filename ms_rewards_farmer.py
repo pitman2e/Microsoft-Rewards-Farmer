@@ -686,6 +686,10 @@ def getRemainingSearches(browser: WebDriver):
     dashboard = getDashboardData(browser)
     searchPoints = 1
     counters = dashboard['userStatus']['counters']
+    
+    if counters.get('pcSearch') == None:
+        return(0, 0)
+    
     progressDesktop = counters['pcSearch'][0]['pointProgress'] + counters['pcSearch'][1]['pointProgress']
     targetDesktop = counters['pcSearch'][0]['pointProgressMax'] + counters['pcSearch'][1]['pointProgressMax']
     if targetDesktop == 33 :
