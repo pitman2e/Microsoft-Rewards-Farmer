@@ -234,26 +234,23 @@ def bingSearch(browser: WebDriver, word: str, isMobile: bool):
     searchbar.submit()
     time.sleep(random.randint(10, 15))
     points = 0
-    if not isMobile:
-        try :
+    try:
+        if not isMobile:
             points = int(browser.find_element_by_id('id_rc').get_attribute('innerHTML'))
-        except (NoSuchElementException, ValueError) as e:
-            pass
-    else :
-        try :
-            browser.find_element_by_id('mHamburger').click()
-        except UnexpectedAlertPresentException:
+        else:
             try :
-                browser.switch_to.alert.accept()
-                time.sleep(1)
                 browser.find_element_by_id('mHamburger').click()
-            except NoAlertPresentException :
-                pass
-        time.sleep(1)
-        try :
+            except UnexpectedAlertPresentException:
+                try :
+                    browser.switch_to.alert.accept()
+                    time.sleep(1)
+                    browser.find_element_by_id('mHamburger').click()
+                except NoAlertPresentException :
+                    pass
+            time.sleep(1)
             points = int(browser.find_element_by_id('fly_id_rc').get_attribute('innerHTML'))
-        except (NoSuchElementException, ValueError) as e:
-            pass
+    except:
+        pass
     return points
 
 def completeDailySetSearch(browser: WebDriver, cardNumber: int):
@@ -302,7 +299,7 @@ def completeDailySetQuiz(browser: WebDriver, cardNumber: int):
         if numberOfOptions == 8:
             answers = []
             for i in range(8):
-                if browser.find_element_by_id("rqAnswerOption" + str(i)).get_attribute("iscorrectoption") == "True":
+                if browser.find_element_by_id("rqAnswerOption" + str(i)).get_attribute("iscorrectoption").lower() == "true":
                     answers.append("rqAnswerOption" + str(i))
             for answer in answers:
                 browser.find_element_by_id(answer).click()
@@ -556,7 +553,7 @@ def completeMorePromotionQuiz(browser: WebDriver, cardNumber: int):
         if numberOfOptions == 8:
             answers = []
             for i in range(8):
-                if browser.find_element_by_id("rqAnswerOption" + str(i)).get_attribute("iscorrectoption") == "True":
+                if browser.find_element_by_id("rqAnswerOption" + str(i)).get_attribute("iscorrectoption").lower() == "true":
                     answers.append("rqAnswerOption" + str(i))
             for answer in answers:
                 browser.find_element_by_id(answer).click()
@@ -702,7 +699,7 @@ def getRemainingSearches(browser: WebDriver):
     elif targetDesktop == 102 :
         #Level 2 EU
         searchPoints = 3
-    elif targetDesktop == 170 :
+    elif targetDesktop >= 170 :
         #Level 2 US
         searchPoints = 5
     remainingDesktop = int((targetDesktop - progressDesktop) / searchPoints)
