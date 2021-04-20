@@ -14,13 +14,6 @@ from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, ElementNotInteractableException, UnexpectedAlertPresentException, NoAlertPresentException
 
-ACCOUNTS = [
-    {
-        "username": os.environ["EMAIL"],
-        "password": os.environ["PASSWORD"]
-    }
-]
-
 # Define user-agents
 PC_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36 Edg/86.0.622.63'
 MOBILE_USER_AGENT = 'Mozilla/5.0 (Linux; Android 10; Pixel 3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0. 3945.79 Mobile Safari/537.36'
@@ -155,6 +148,46 @@ def waitUntilVisible(browser: WebDriver, by_: By, selector: str, time_to_wait: i
 def waitUntilClickable(browser: WebDriver, by_: By, selector: str, time_to_wait: int = 10):
     WebDriverWait(browser, time_to_wait).until(ec.element_to_be_clickable((by_, selector)))
 
+def waitUntilQuestionRefresh(browser: WebDriver):
+    tries = 0
+    refreshCount = 0
+    while True:
+        try:
+            browser.find_elements_by_class_name('rqECredits')[0]
+            return True
+        except:
+            if tries < 10:
+                tries += 1
+                time.sleep(0.5)
+            else:
+                if refreshCount < 5:
+                    browser.refresh()
+                    refreshCount += 1
+                    tries = 0
+                    time.sleep(5)
+                else:
+                    return False
+
+def waitUntilQuizLoads(browser: WebDriver):
+    tries = 0
+    refreshCount = 0
+    while True:
+        try:
+            browser.find_element_by_xpath('//*[@id="rqStartQuiz"]')
+            return True
+        except:
+            if tries < 10:
+                tries += 1
+                time.sleep(0.5)
+            else:
+                if refreshCount < 5:
+                    browser.refresh()
+                    refreshCount += 1
+                    tries = 0
+                    time.sleep(5)
+                else:
+                    return False
+
 def findBetween(s: str, first: str, last: str) -> str:
     try:
         start = s.index(first) + len(first)
@@ -163,11 +196,15 @@ def findBetween(s: str, first: str, last: str) -> str:
     except ValueError:
         return ""
 
-def getCCodeLangAndOffset():
+def getCCodeLangAndOffset() -> tuple:
     nfo = ipapi.location()
     lang = nfo['languages'].split(',')[0]
     geo = nfo['country']
-    return(lang, geo)
+    if nfo['utc_offset'] == None:
+        tz = str(0)
+    else:
+        tz = str(round(int(nfo['utc_offset']) / 100 * 60))
+    return(lang, geo, tz)
 
 def getGoogleTrends(numberOfwords: int) -> list:
     search_terms = []
@@ -184,23 +221,29 @@ def getGoogleTrends(numberOfwords: int) -> list:
     del search_terms[numberOfwords:(len(search_terms)+1)]
     return search_terms
 
-def getRelatedTerms(word: str) -> int:
-    r = requests.get('https://api.bing.com/osjson.aspx?query=' + word, headers = {'User-agent': PC_USER_AGENT})
-    return r.json()[1]
+def getRelatedTerms(word: str) -> list:
+    try:
+        r = requests.get('https://api.bing.com/osjson.aspx?query=' + word, headers = {'User-agent': PC_USER_AGENT})
+        return r.json()[1]
+    except:
+        return []
 
 def resetTabs(browser: WebDriver):
-    curr = browser.current_window_handle
+    try:
+        curr = browser.current_window_handle
 
-    for handle in browser.window_handles:
-        if handle != curr:
-            browser.switch_to.window(handle)
-            time.sleep(0.5)
-            browser.close()
-            time.sleep(0.5)
+        for handle in browser.window_handles:
+            if handle != curr:
+                browser.switch_to.window(handle)
+                time.sleep(0.5)
+                browser.close()
+                time.sleep(0.5)
 
-    browser.switch_to.window(curr)
-    time.sleep(0.5)
-    browser.get('https://account.microsoft.com/rewards/')
+        browser.switch_to.window(curr)
+        time.sleep(0.5)
+        browser.get('https://account.microsoft.com/rewards/')
+    except:
+        browser.get('https://account.microsoft.com/rewards/')
 
 def getAnswerCode(key: str, string: str) -> str:
 	t = 0
@@ -223,8 +266,10 @@ def bingSearches(browser: WebDriver, numberOfSearches: int, isMobile: bool = Fal
                 points = bingSearch(browser, term, isMobile)
                 if not points <= POINTS_COUNTER :
                     break
-        
-        POINTS_COUNTER = points
+        if points > 0:
+            POINTS_COUNTER = points
+        else:
+            break
 
 def bingSearch(browser: WebDriver, word: str, isMobile: bool):
     browser.get('https://bing.com')
@@ -252,6 +297,21 @@ def bingSearch(browser: WebDriver, word: str, isMobile: bool):
     except:
         pass
     return points
+
+def completePromotionalItems(browser: WebDriver):
+    try:
+        item = getDashboardData(browser)["promotionalItem"]
+        if (item["pointProgressMax"] == 100 or item["pointProgressMax"] == 200) and item["complete"] == False and item["destinationUrl"] == "https://account.microsoft.com/rewards":
+            browser.find_element_by_xpath('//*[@id="promo-item"]/section/div/div/div/a').click()
+            time.sleep(1)
+            browser.switch_to.window(window_name = browser.window_handles[1])
+            time.sleep(8)
+            browser.close()
+            time.sleep(2)
+            browser.switch_to.window(window_name = browser.window_handles[0])
+            time.sleep(2)
+    except:
+        pass
 
 def completeDailySetSearch(browser: WebDriver, cardNumber: int):
     time.sleep(5)
@@ -283,13 +343,9 @@ def completeDailySetQuiz(browser: WebDriver, cardNumber: int):
     time.sleep(1)
     browser.switch_to.window(window_name = browser.window_handles[1])
     time.sleep(8)
-    loaded = False
-    while(loaded == False):
-        try:
-            browser.find_element_by_xpath('//*[@id="rqStartQuiz"]')
-            loaded = True
-        except:
-            time.sleep(0.5)
+    if not waitUntilQuizLoads(browser):
+        resetTabs(browser)
+        return
     browser.find_element_by_xpath('//*[@id="rqStartQuiz"]').click()
     waitUntilVisible(browser, By.XPATH, '//*[@id="currentQuestionContainer"]/div/div[1]', 10)
     time.sleep(3)
@@ -304,19 +360,8 @@ def completeDailySetQuiz(browser: WebDriver, cardNumber: int):
             for answer in answers:
                 browser.find_element_by_id(answer).click()
                 time.sleep(5)
-                tries = 0
-                while True:
-                    try:
-                        browser.find_elements_by_class_name('rqECredits')[0]
-                        break
-                    except IndexError:
-                        if tries < 10:
-                            tries += 1
-                            time.sleep(0.5)
-                        else:
-                            browser.refresh()
-                            tries = 0
-                            time.sleep(5)
+                if not waitUntilQuestionRefresh(browser):
+                    return
             time.sleep(5)
         elif numberOfOptions == 4:
             correctOption = browser.execute_script("return _w.rewardsQuizRenderInfo.correctAnswer")
@@ -324,19 +369,8 @@ def completeDailySetQuiz(browser: WebDriver, cardNumber: int):
                 if browser.find_element_by_id("rqAnswerOption" + str(i)).get_attribute("data-option") == correctOption:
                     browser.find_element_by_id("rqAnswerOption" + str(i)).click()
                     time.sleep(5)
-                    tries = 0
-                    while True:
-                        try:
-                            browser.find_elements_by_class_name('rqECredits')[0]
-                            break
-                        except IndexError:
-                            if tries < 10:
-                                tries += 1
-                                time.sleep(0.5)
-                            else:
-                                browser.refresh()
-                                tries = 0
-                                time.sleep(5)
+                    if not waitUntilQuestionRefresh(browser):
+                        return
                     break
             time.sleep(5)
     time.sleep(5)
@@ -394,13 +428,9 @@ def completeDailySetThisOrThat(browser: WebDriver, cardNumber: int):
     time.sleep(1)
     browser.switch_to.window(window_name=browser.window_handles[1])
     time.sleep(8)
-    loaded = False
-    while(loaded == False):
-        try:
-            browser.find_element_by_xpath('//*[@id="rqStartQuiz"]')
-            loaded = True
-        except:
-            time.sleep(0.5)
+    if not waitUntilQuizLoads(browser):
+        resetTabs(browser)
+        return
     browser.find_element_by_xpath('//*[@id="rqStartQuiz"]').click()
     waitUntilVisible(browser, By.XPATH, '//*[@id="currentQuestionContainer"]/div/div[1]', 10)
     time.sleep(3)
@@ -450,13 +480,13 @@ def completeDailySet(browser: WebDriver):
                     print('[DAILY SET]', 'Completing search of card ' + str(cardNumber))
                     completeDailySetSearch(browser, cardNumber)
                 if activity['promotionType'] == "quiz":
-                    if activity['pointProgressMax'] == 50:
+                    if activity['pointProgressMax'] == 50 and activity['pointProgress'] == 0:
                         print('[DAILY SET]', 'Completing This or That of card ' + str(cardNumber))
                         completeDailySetThisOrThat(browser, cardNumber)
-                    elif activity['pointProgressMax'] == 40 or activity['pointProgressMax'] == 30:
+                    elif (activity['pointProgressMax'] == 40 or activity['pointProgressMax'] == 30) and activity['pointProgress'] == 0:
                         print('[DAILY SET]', 'Completing quiz of card ' + str(cardNumber))
                         completeDailySetQuiz(browser, cardNumber)
-                    elif activity['pointProgressMax'] == 10:
+                    elif activity['pointProgressMax'] == 10 and activity['pointProgress'] == 0:
                         searchUrl = urllib.parse.unquote(urllib.parse.parse_qs(urllib.parse.urlparse(activity['destinationUrl']).query)['ru'][0])
                         searchUrlQueries = urllib.parse.parse_qs(urllib.parse.urlparse(searchUrl).query)
                         filters = {}
@@ -537,13 +567,9 @@ def completeMorePromotionQuiz(browser: WebDriver, cardNumber: int):
     time.sleep(1)
     browser.switch_to.window(window_name=browser.window_handles[1])
     time.sleep(8)
-    loaded = False
-    while(loaded == False):
-        try:
-            browser.find_element_by_xpath('//*[@id="rqStartQuiz"]')
-            loaded = True
-        except:
-            time.sleep(0.5)
+    if not waitUntilQuizLoads(browser):
+        resetTabs(browser)
+        return
     browser.find_element_by_xpath('//*[@id="rqStartQuiz"]').click()
     waitUntilVisible(browser, By.XPATH, '//*[@id="currentQuestionContainer"]/div/div[1]', 10)
     time.sleep(3)
@@ -558,19 +584,8 @@ def completeMorePromotionQuiz(browser: WebDriver, cardNumber: int):
             for answer in answers:
                 browser.find_element_by_id(answer).click()
                 time.sleep(5)
-                tries = 0
-                while True:
-                    try:
-                        browser.find_elements_by_class_name('rqECredits')[0]
-                        break
-                    except IndexError:
-                        if tries < 10:
-                            tries += 1
-                            time.sleep(0.5)
-                        else:
-                            browser.refresh()
-                            tries = 0
-                            time.sleep(5)
+                if not waitUntilQuestionRefresh(browser):
+                    return
             time.sleep(5)
         elif numberOfOptions == 4:
             correctOption = browser.execute_script("return _w.rewardsQuizRenderInfo.correctAnswer")
@@ -578,19 +593,8 @@ def completeMorePromotionQuiz(browser: WebDriver, cardNumber: int):
                 if browser.find_element_by_id("rqAnswerOption" + str(i)).get_attribute("data-option") == correctOption:
                     browser.find_element_by_id("rqAnswerOption" + str(i)).click()
                     time.sleep(5)
-                    tries = 0
-                    while True:
-                        try:
-                            browser.find_elements_by_class_name('rqECredits')[0]
-                            break
-                        except IndexError:
-                            if tries < 10:
-                                tries += 1
-                                time.sleep(0.5)
-                            else:
-                                browser.refresh()
-                                tries = 0
-                                time.sleep(5)
+                    if not waitUntilQuestionRefresh(browser):
+                        return
                     break
             time.sleep(5)
     time.sleep(5)
@@ -622,13 +626,9 @@ def completeMorePromotionThisOrThat(browser: WebDriver, cardNumber: int):
     time.sleep(1)
     browser.switch_to.window(window_name=browser.window_handles[1])
     time.sleep(8)
-    loaded = False
-    while(loaded == False):
-        try:
-            browser.find_element_by_xpath('//*[@id="rqStartQuiz"]')
-            loaded = True
-        except:
-            time.sleep(0.5)
+    if not waitUntilQuizLoads(browser):
+        resetTabs(browser)
+        return
     browser.find_element_by_xpath('//*[@id="rqStartQuiz"]').click()
     waitUntilVisible(browser, By.XPATH, '//*[@id="currentQuestionContainer"]/div/div[1]', 10)
     time.sleep(3)
@@ -667,7 +667,7 @@ def completeMorePromotions(browser: WebDriver):
             if promotion['complete'] == False and promotion['pointProgressMax'] != 0:
                 if promotion['promotionType'] == "urlreward":
                     completeMorePromotionSearch(browser, i)
-                elif promotion['promotionType'] == "quiz":
+                elif promotion['promotionType'] == "quiz" and promotion['pointProgress'] == 0:
                     if promotion['pointProgressMax'] == 10:
                         completeMorePromotionABC(browser, i)
                     elif promotion['pointProgressMax'] == 30 or promotion['pointProgressMax'] == 40:
@@ -684,10 +684,8 @@ def getRemainingSearches(browser: WebDriver):
     dashboard = getDashboardData(browser)
     searchPoints = 1
     counters = dashboard['userStatus']['counters']
-    
-    if counters.get('pcSearch') == None:
-        return(0, 0)
-    
+    if not 'pcSearch' in counters:
+        return 0, 0
     progressDesktop = counters['pcSearch'][0]['pointProgress'] + counters['pcSearch'][1]['pointProgress']
     targetDesktop = counters['pcSearch'][0]['pointProgressMax'] + counters['pcSearch'][1]['pointProgressMax']
     if targetDesktop == 33 :
@@ -708,7 +706,7 @@ def getRemainingSearches(browser: WebDriver):
         progressMobile = counters['mobileSearch'][0]['pointProgress']
         targetMobile = counters['mobileSearch'][0]['pointProgressMax']
         remainingMobile = int((targetMobile - progressMobile) / searchPoints)
-    return(remainingDesktop, remainingMobile)
+    return remainingDesktop, remainingMobile
 
 def prRed(prt):
     print("\033[91m{}\033[00m".format(prt))
@@ -728,7 +726,28 @@ prRed("""
 ╚═╝     ╚═╝╚══════╝    ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝""")
 prPurple("        by Charles Bel (@charlesbel)               version 1.1\n")
 
-LANG, GEO = getCCodeLangAndOffset()
+LANG, GEO, TZ = getCCodeLangAndOffset()
+
+if len(os.environ["EMAIL"]) == 0:
+    try:
+        account_path = os.path.dirname(os.path.abspath(__file__)) + '/accounts.json'
+        ACCOUNTS = json.load(open(account_path, "r"))
+    except FileNotFoundError:
+        with open(account_path, 'w') as f:
+            f.write(json.dumps([{
+                "username": "Your Email",
+                "password": "Your Password"
+            }], indent=4))
+        prPurple("""
+    [ACCOUNT] Accounts credential file "accounts.json" created.
+    [ACCOUNT] Edit with your credentials and save, then press any key to continue...
+        """)
+        input()
+        ACCOUNTS = json.load(open(account_path, "r"))
+else:
+    ACCOUNTS = [{"username":os.environ["EMAIL"]  ,"password": os.environ["PASSWORD"]}]
+
+random.shuffle(ACCOUNTS)
 
 for account in ACCOUNTS:
 
