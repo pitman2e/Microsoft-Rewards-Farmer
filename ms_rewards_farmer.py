@@ -24,13 +24,36 @@ POINTS_COUNTER = 0
 def browserSetup(headless_mode: bool = False, user_agent: str = PC_USER_AGENT) -> WebDriver:
     # Create Chrome browser
     from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+
     options = Options()
     options.add_argument("user-agent=" + user_agent)
     options.add_argument('lang=' + LANG.split("-")[0])
     if headless_mode :
         options.add_argument("--headless")
     options.add_argument('log-level=3')
-    chrome_browser_obj = webdriver.Chrome(options=options)
+    if len(os.environ.get("WEBDRIVER_ADDR", "")) == 0:
+        chrome_browser_obj = webdriver.Chrome(options=options)
+    else:        
+        chrome_browser_obj: WebDriver = None
+        for _ in range(3):
+            if chrome_browser_obj == None:
+                try:
+                    chrome_browser_obj = webdriver.Remote(
+                                            command_executor=os.environ["WEBDRIVER_ADDR"],
+                                            desired_capabilities=DesiredCapabilities.CHROME,
+                                            options=options)
+                except:
+                    pass
+
+                if chrome_browser_obj != None:
+                    break
+                
+                time.sleep(10) #TODO: Wait for Selenium Hub to init
+
+        if chrome_browser_obj == None:
+            raise Exception("Failed to init Remote Web Driver")
+
     return chrome_browser_obj
 
 # Define login function

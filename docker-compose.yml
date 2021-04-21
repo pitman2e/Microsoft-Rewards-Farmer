@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+    selenium-hub:
+        image: selenium/hub
+        ports:
+            - 4444:4444
+        networks: 
+            - bridge
+
+    node-chrome:
+        image: selenium/node-chrome
+        depends_on:
+            - selenium-hub
+        environment:
+            - HUB_HOST=selenium-hub
+        networks: 
+            - bridge
+
+    farmer:
+        build: .
+        networks: 
+            - bridge
+        depends_on:
+            - node-chrome
+        environment: 
+            - EMAIL=${MS_CREDS_USR}
+            - PASSWORD=${MS_CREDS_PSW}
+            - WEBDRIVER_ADDR=http://selenium-hub:4444/wd/hub
+
+networks:
+    bridge:
+        driver: bridge
