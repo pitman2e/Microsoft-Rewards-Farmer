@@ -728,7 +728,7 @@ prPurple("        by Charles Bel (@charlesbel)               version 1.1\n")
 
 LANG, GEO, TZ = getCCodeLangAndOffset()
 
-if len(os.environ["EMAIL"]) == 0:
+if len(os.environ.get("EMAIL", "")) == 0:
     try:
         account_path = os.path.dirname(os.path.abspath(__file__)) + '/accounts.json'
         ACCOUNTS = json.load(open(account_path, "r"))
