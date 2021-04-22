@@ -12,6 +12,12 @@ fi
 export MS_CREDS_USR=$MS_CREDS_USR;
 export MS_CREDS_PSW=$MS_CREDS_PSW;
 
+if [[ $(uname -m) =~ "arm" ]]; then
+   export SELENIUM_IMAGE=kynetiv/selenium-standalone-chromium-pi;
+else
+   export SELENIUM_IMAGE=selenium/standalone-chrome;
+fi
+
 docker-compose up --build --abort-on-container-exit
 
 export MS_CREDS_USR=;
