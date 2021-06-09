@@ -35,6 +35,8 @@ def browserSetup(headless_mode: bool = False, user_agent: str = PC_USER_AGENT) -
     if len(os.environ.get("WEBDRIVER_ADDR", "")) == 0:
         chrome_browser_obj = webdriver.Chrome(options=options)
     else:        
+        options.add_argument("--no-sandbox")
+        
         chrome_browser_obj: WebDriver = None
         for _ in range(3):
             if chrome_browser_obj == None:
